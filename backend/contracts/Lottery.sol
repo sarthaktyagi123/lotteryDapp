@@ -61,3 +61,57 @@ contract Lottery{
     }
 
 }
+
+// SPDX-License-Identifier: MIT
+const Lottery = artifacts.require("Lottery");
+
+contract("Lottery", (accounts) => {
+  let lotteryInstance;
+
+  // Deploy the Lottery contract before each test
+  beforeEach(async () => {
+    lotteryInstance = await Lottery.new(
+      // Pass Chainlink VRF Coordinator, LINK token, keyHash, and fee parameters
+    );
+  });
+
+  it("should allow participants to enter the lottery", async () => {
+    await lotteryInstance.enter({ from: accounts[1], value: web3.utils.toWei("0.1", "ether") });
+    const players = await lotteryInstance.getPlayers();
+    assert.equal(players.length, 1, "Participant not added to the lottery");
+  });
+
+  it("should not allow participants with insufficient funds to enter", async () => {
+    try {
+      await lotteryInstance.enter({ from: accounts[1], value: web3.utils.toWei("0.09", "ether") });
+      assert.fail("Transaction should have thrown an exception");
+    } catch (error) {
+      assert.include(
+        error.message,
+        "revert",
+        "Transaction should be reverted due to insufficient funds"
+      );
+    }
+  });
+
+  it("should allow the owner to pick a winner", async () => {
+    // Assuming at least one participant has entered
+    await lotteryInstance.enter({ from: accounts[1], value: web3.utils.toWei("0.1", "ether") });
+    
+    const initialBalance = await web3.eth.getBalance(accounts[1]);
+
+    // Note: Add Chainlink VRF mock or set up a specific randomness value for testing
+    await lotteryInstance.pickWinner();
+
+    const finalBalance = await web3.eth.getBalance(accounts[1]);
+    const winners = await lotteryInstance.getWinners();
+
+    assert.isAbove(finalBalance, initialBalance, "Winner should receive funds");
+    assert.equal(winners.length, 1, "Winner not added to the list");
+  });
+
+  // Additional test cases can be added to cover other functions and scenarios
+
+  // ...
+
+});
